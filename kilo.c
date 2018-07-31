@@ -202,6 +202,10 @@ int editorReadKey() {
   }
 }
 
+int ishexdigit(char c) {
+  return isdigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+}
+
 int getCursorPosition(int *rows, int *cols) {
   char buf[32];
   unsigned int i = 0;
@@ -257,22 +261,22 @@ void editorUpdateSyntax(erow *row) {
   int mce_len = mce ? strlen(mce) : 0;
 
   int prev_sep = 1;
-  int in_string = 0;
   int in_comment = (row->idx > 0 && E.row[row->idx - 1].hl_open_comment);
 
   int i = 0;
   while (i < row->rsize) {
     char c = row->render[i];
-    unsigned char prev_hl = (i > 0) ? row->hl[i - 1] : HL_NORMAL;
+    char next_c = (i + 1) < row->rsize ? row->render[i + 1] : 0;
 
-    if (scs_len && !in_string && !in_comment) {
+
+    if (scs_len && !in_comment) {
       if (!strncmp(&row->render[i], scs, scs_len)) {
         memset(&row->hl[i], HL_COMMENT, row->rsize - i);
         break;
       }
     }
 
-    if (mcs_len && mce_len && !in_string) {
+    if (mcs_len && mce_len) {
       if (in_comment) {
         row->hl[i] = HL_MLCOMMENT;
         if (!strncmp(&row->render[i], mce, mce_len)) {
@@ -294,32 +298,52 @@ void editorUpdateSyntax(erow *row) {
     }
 
     if (E.syntax->flags & HL_HIGHLIGHT_STRINGS) {
-      if (in_string) {
-        row->hl[i] = HL_STRING;
-        if (c == '\\' && i + 1 < row->rsize) {
-          row->hl[i + 1] = HL_STRING;
-          i += 2;
+      if (c == '"' || c == '\'') {
+          int quote = c;
+          row->hl[i++] = HL_STRING;
+          c = row->render[i];
+
+          while (i < row->rsize && c != quote) {
+            if (c == '\\' && i + 1 < row->rsize) {
+              row->hl[i++] = HL_STRING;
+              row->hl[i++] = HL_STRING;
+            } else {
+              row->hl[i++] = HL_STRING;
+            }
+
+            c = row->render[i];
+          }
+
+          if (c == quote) {
+            row->hl[i++] = HL_STRING;
+          }
+
+          prev_sep = 1;
           continue;
-        }
-        if (c == in_string) in_string = 0;
-        i++;
-        prev_sep = 1;
-        continue;
-      } else {
-        if (c == '"' || c == '\'') {
-          in_string = c;
-          row->hl[i] = HL_STRING;
-          i++;
-          continue;
-        }
       }
     }
 
-    if (E.syntax->flags & HL_HIGHLIGHT_NUMBERS) {
-      if ((isdigit(c) && (prev_sep || prev_hl == HL_NUMBER)) ||
-          (c == '.' && prev_hl == HL_NUMBER)) {
-        row->hl[i] = HL_NUMBER;
-        i++;
+    if (E.syntax->flags & HL_HIGHLIGHT_NUMBERS && prev_sep) {
+      if (c == '0' && (next_c == 'x' || next_c == 'X')) {
+        row->hl[i++] = HL_NUMBER;
+        row->hl[i++] = HL_NUMBER;
+        c = row->render[i];
+
+        while (i < row->rsize && ishexdigit(c)) {
+          row->hl[i++] = HL_NUMBER;
+          c = row->render[i];
+        }
+
+        prev_sep = 0;
+        continue;
+      }
+
+      if (isdigit(c)) {
+        while (i < row->rsize && isdigit(c)) {
+          row->hl[i++] = HL_NUMBER;
+          c = row->render[i];
+        }
+
         prev_sep = 0;
         continue;
       }
