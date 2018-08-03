@@ -84,6 +84,7 @@ struct editorConfig {
   int numrows;
   erow *row;
   int dirty;
+  int leftpad;
   char *filename;
   char statusmsg[80];
   time_t statusmsg_time;
@@ -121,6 +122,7 @@ struct editorSyntax HLDB[] = {
 void editorSetStatusMessage(const char *fmt, ...);
 void editorRefreshScreen();
 char *editorPrompt(char *prompt, void (*callback)(char *, int));
+int numDigits(int num);
 
 /*** terminal ***/
 
@@ -491,6 +493,7 @@ void editorInsertRow(int at, char *s, size_t len) {
 
   E.numrows++;
   E.dirty++;
+  E.leftpad = numDigits(E.numrows) + 1;
 }
 
 void editorFreeRow(erow *row) {
@@ -506,6 +509,7 @@ void editorDelRow(int at) {
   for (int j = at; j < E.numrows - 1; j++) E.row[j].idx--;
   E.numrows--;
   E.dirty++;
+  E.leftpad = numDigits(E.numrows) + 1;
 }
 
 void editorRowInsertChar(erow *row, int at, int c) {
@@ -746,6 +750,14 @@ void abFree(struct abuf *ab) {
 }
 
 /*** output ***/
+int numDigits(int num) {
+    int digits = 0;
+    while (num > 0) {
+        ++digits;
+        num = num / 10;
+    }
+    return digits;
+}
 
 void editorScroll() {
   E.rx = 0;
@@ -762,6 +774,8 @@ void editorScroll() {
   if (E.rx < E.coloff) {
     E.coloff = E.rx;
   }
+
+  E.rx += E.leftpad;
   if (E.rx >= E.coloff + E.screencols) {
     E.coloff = E.rx - E.screencols + 1;
   }
@@ -789,8 +803,15 @@ void editorDrawRows(struct abuf *ab) {
       }
     } else {
       int len = E.row[filerow].rsize - E.coloff;
+
+      char lineno[E.leftpad + 11];
+      int lineno_len = snprintf(
+        lineno, sizeof(lineno), "\x1b[33m%*d\x1b[39m ", E.leftpad - 1, E.row[filerow].idx + 1);
+      abAppend(ab, lineno, lineno_len);
+
       if (len < 0) len = 0;
-      if (len > E.screencols) len = E.screencols;
+      if (len > E.screencols - E.leftpad) len = E.screencols - E.leftpad;
+
       char *c = &E.row[filerow].render[E.coloff];
       unsigned char *hl = &E.row[filerow].hl[E.coloff];
       int current_color = -1;
@@ -1061,6 +1082,7 @@ void initEditor() {
   E.rx = 0;
   E.rowoff = 0;
   E.coloff = 0;
+  E.leftpad = 0;
   E.numrows = 0;
   E.row = NULL;
   E.dirty = 0;
