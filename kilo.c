@@ -714,7 +714,7 @@ void editorFind() {
   int saved_coloff = E.coloff;
   int saved_rowoff = E.rowoff;
 
-  char *query = editorPrompt("Search: %s (Use ESC/Arrows/Enter)",
+  char *query = editorPrompt("Search: %s",
                              editorFindCallback);
 
   if (query) {
@@ -919,6 +919,8 @@ void editorSetStatusMessage(const char *fmt, ...) {
 char *editorPrompt(char *prompt, void (*callback)(char *, int)) {
   size_t bufsize = 128;
   char *buf = malloc(bufsize);
+  char cursor[20];
+  int cursor_start = strstr(prompt, "%s") - prompt;
 
   size_t buflen = 0;
   buf[0] = '\0';
@@ -926,6 +928,11 @@ char *editorPrompt(char *prompt, void (*callback)(char *, int)) {
   while (1) {
     editorSetStatusMessage(prompt, buf);
     editorRefreshScreen();
+
+    // move cursor to prompt
+    int cursor_pos = cursor_start + buflen + 1;
+    int len = snprintf(cursor, sizeof(cursor), "\x1b[%d;%dH", E.screenrows + 2, cursor_pos);
+    write(STDOUT_FILENO, cursor, len);
 
     int c = editorReadKey();
     if (c == DEL_KEY || c == CTRL_KEY('h') || c == BACKSPACE) {
