@@ -7,6 +7,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <wchar.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -16,6 +17,7 @@
 #include <termios.h>
 #include <time.h>
 #include <unistd.h>
+#include <locale.h>
 
 /*** defines ***/
 
@@ -422,17 +424,57 @@ void editorSelectSyntaxHighlight() {
 }
 
 /*** row operations ***/
+int getCharLen(const char *string, int pos) {
+    return mblen(string + pos, strlen(string) - pos);
+}
+
+int getPrevCharLen(const char *string, int pos) {
+    int len = 0;
+    int i = pos;
+
+    while (i > 0 && len < 1) {
+        i--;
+        len = mblen(string + i, pos);
+    }
+
+    return len;
+}
+
+int getCharWidth(char *string, int size, int *l) {
+    wchar_t dest;
+    int len = mblen(string, size);
+    if (len <= 0) {
+        *l = 1;
+        return 1;
+    }
+
+    *l = len;
+    mbtowc(&dest, string, size);
+
+    return wcwidth(dest);
+}
 
 int editorRowCxToRx(erow *row, int cx) {
   int rx = 0;
   int j;
-  for (j = 0; j < cx; j++) {
-    if (row->chars[j] == '\t')
-      rx += (KILO_TAB_STOP - 1) - (rx % KILO_TAB_STOP);
-    rx++;
+  int len;
+  char *line = row->chars;
+
+  for (j = 0; j < cx;) {
+    if (*line == '\t') {
+      len = 1;
+      rx += KILO_TAB_STOP - (rx % KILO_TAB_STOP);
+    } else {
+        int width = getCharWidth(line, row->size - j, &len);
+        rx += width;
+    }
+
+    j += len;
+    line += len;
   }
   return rx;
 }
+
 
 int editorRowRxToCx(erow *row, int rx) {
   int cur_rx = 0;
@@ -531,12 +573,17 @@ void editorRowAppendString(erow *row, char *s, size_t len) {
   E.dirty++;
 }
 
-void editorRowDelChar(erow *row, int at) {
-  if (at < 0 || at >= row->size) return;
-  memmove(&row->chars[at], &row->chars[at + 1], row->size - at);
-  row->size--;
-  editorUpdateRow(row);
-  E.dirty++;
+int editorRowDelPrevChar(erow *row, int at) {
+    if (at < 0 || at > row->size) return 0;
+    int len = getPrevCharLen(row->chars, at);
+    int pos = at - len;
+
+    memmove(&row->chars[pos], &row->chars[at], row->size - pos);
+    row->size -= len;
+    editorUpdateRow(row);
+    E.dirty++;
+
+    return len;
 }
 
 /*** editor operations ***/
@@ -570,8 +617,7 @@ void editorDelChar() {
 
   erow *row = &E.row[E.cy];
   if (E.cx > 0) {
-    editorRowDelChar(row, E.cx - 1);
-    E.cx--;
+    E.cx -= editorRowDelPrevChar(row, E.cx);
   } else {
     E.cx = E.row[E.cy - 1].size;
     editorRowAppendString(&E.row[E.cy - 1], row->chars, row->size);
@@ -898,6 +944,10 @@ void editorRefreshScreen() {
   char buf[32];
   snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1,
                                             (E.rx - E.coloff) + 1);
+
+  char buf2[80];
+  snprintf(buf2, sizeof(buf2), "%d", (E.rx - E.coloff) + 1);
+  editorSetStatusMessage(buf2, 0);
   abAppend(&ab, buf, strlen(buf));
 
   abAppend(&ab, "\x1b[?25h", 6);
@@ -966,8 +1016,8 @@ void editorMoveCursor(int key) {
 
   switch (key) {
     case ARROW_LEFT:
-      if (E.cx != 0) {
-        E.cx--;
+      if (E.cx > 0) {
+        E.cx -= getPrevCharLen(row->chars, E.cx);
       } else if (E.cy > 0) {
         E.cy--;
         E.cx = E.row[E.cy].size;
@@ -975,7 +1025,7 @@ void editorMoveCursor(int key) {
       break;
     case ARROW_RIGHT:
       if (row && E.cx < row->size) {
-        E.cx++;
+        E.cx += getCharLen(row->chars, E.cx);
       } else if (row && E.cx == row->size) {
         E.cy++;
         E.cx = 0;
@@ -1042,7 +1092,9 @@ void editorProcessKeypress() {
     case BACKSPACE:
     case CTRL_KEY('h'):
     case DEL_KEY:
-      if (c == DEL_KEY) editorMoveCursor(ARROW_RIGHT);
+      if (c == DEL_KEY) {
+        editorMoveCursor(ARROW_RIGHT);
+      }
       editorDelChar();
       break;
 
@@ -1103,6 +1155,7 @@ void initEditor() {
 }
 
 int main(int argc, char *argv[]) {
+  setlocale(LC_ALL, "");
   enableRawMode();
   initEditor();
   if (argc >= 2) {
