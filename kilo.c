@@ -499,12 +499,23 @@ void editorUpdateRow(erow *row) {
   row->render = malloc(row->size + tabs*(KILO_TAB_STOP - 1) + 1);
 
   int idx = 0;
-  for (j = 0; j < row->size; j++) {
+  int col = 0;
+  int char_len;
+  for (j = 0; j < row->size;) {
     if (row->chars[j] == '\t') {
+      j++;
+      col++;
       row->render[idx++] = ' ';
-      while (idx % KILO_TAB_STOP != 0) row->render[idx++] = ' ';
+      while (col % KILO_TAB_STOP != 0) {
+        col++;
+        row->render[idx++] = ' ';
+      }
     } else {
-      row->render[idx++] = row->chars[j];
+      col += getCharWidth(row->chars+j, row->size - j, &char_len);
+      while (char_len > 0) {
+        char_len--;
+        row->render[idx++] = row->chars[j++];
+      }
     }
   }
   row->render[idx] = '\0';
@@ -848,23 +859,36 @@ void editorDrawRows(struct abuf *ab) {
         abAppend(ab, "~", 1);
       }
     } else {
-      int len = E.row[filerow].rsize - E.coloff;
-
       char lineno[E.leftpad + 11];
       int lineno_len = snprintf(
         lineno, sizeof(lineno), "\x1b[33m%*d\x1b[39m ", E.leftpad - 1, E.row[filerow].idx + 1);
       abAppend(ab, lineno, lineno_len);
 
-      if (len < 0) len = 0;
-      if (len > E.screencols - E.leftpad) len = E.screencols - E.leftpad;
+      char *c = E.row[filerow].render;
 
-      char *c = &E.row[filerow].render[E.coloff];
-      unsigned char *hl = &E.row[filerow].hl[E.coloff];
+      unsigned char *hl = E.row[filerow].hl;
       int current_color = -1;
-      int j;
-      for (j = 0; j < len; j++) {
-        if (iscntrl(c[j])) {
-          char sym = (c[j] <= 26) ? '@' + c[j] : '?';
+
+      int size = E.row[filerow].rsize;
+      int char_len;
+      int col = 0;
+      int offset = 0;
+
+      for (;;) {
+        col += getCharWidth(c, size - offset, &char_len);
+        offset += char_len;
+
+        if (col <= E.coloff) {
+          c += char_len;
+          hl += char_len;
+          continue;
+        }
+
+        if (col - E.coloff > E.screencols - E.leftpad || *c == '\0')
+          break;
+
+        if (iscntrl(*c)) {
+          char sym = (*c <= 26) ? '@' + *c : '?';
           abAppend(ab, "\x1b[7m", 4);
           abAppend(ab, &sym, 1);
           abAppend(ab, "\x1b[m", 3);
@@ -873,22 +897,25 @@ void editorDrawRows(struct abuf *ab) {
             int clen = snprintf(buf, sizeof(buf), "\x1b[%dm", current_color);
             abAppend(ab, buf, clen);
           }
-        } else if (hl[j] == HL_NORMAL) {
+        } else if (*hl == HL_NORMAL) {
           if (current_color != -1) {
             abAppend(ab, "\x1b[39m", 5);
             current_color = -1;
           }
-          abAppend(ab, &c[j], 1);
+          abAppend(ab, c, char_len);
         } else {
-          int color = editorSyntaxToColor(hl[j]);
+          int color = editorSyntaxToColor(*hl);
           if (color != current_color) {
             current_color = color;
             char buf[16];
             int clen = snprintf(buf, sizeof(buf), "\x1b[%dm", color);
             abAppend(ab, buf, clen);
           }
-          abAppend(ab, &c[j], 1);
+          abAppend(ab, c, char_len);
         }
+
+        c += char_len;
+        hl += char_len;
       }
       abAppend(ab, "\x1b[39m", 5);
     }
