@@ -55,6 +55,10 @@ enum editorHighlight {
 #define HL_HIGHLIGHT_STRINGS (1<<1)
 
 /*** data ***/
+struct cursor {
+    int col;
+    int row;
+};
 
 struct editorSyntax {
   char *filetype;
@@ -94,6 +98,7 @@ struct editorConfig {
   struct termios orig_termios;
 };
 
+struct cursor prev_cursor;
 struct editorConfig E;
 
 /*** filetypes ***/
@@ -123,6 +128,9 @@ struct editorSyntax HLDB[] = {
 
 void editorSetStatusMessage(const char *fmt, ...);
 void editorRefreshScreen();
+void restoreCursorPosition();
+void saveCursorPosition();
+int getCursorPosition(int *row, int *col);
 char *editorPrompt(char *prompt, void (*callback)(char *, int));
 int numDigits(int num);
 
@@ -136,7 +144,21 @@ void die(const char *s) {
   exit(1);
 }
 
+void saveCursorPosition() {
+    getCursorPosition(&prev_cursor.row, &prev_cursor.col);
+}
+
+void restoreCursorPosition() {
+  char buf[32];
+  int len = snprintf(buf, sizeof(buf), "\x1b[%d;%dH", prev_cursor.row,
+                                            prev_cursor.col);
+  write(STDOUT_FILENO, buf, len);
+}
+
 void disableRawMode() {
+  write(STDOUT_FILENO, "\033[?47l", 6);
+  restoreCursorPosition();
+
   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &E.orig_termios) == -1)
     die("tcsetattr");
 }
@@ -1176,6 +1198,9 @@ void initEditor() {
   E.statusmsg[0] = '\0';
   E.statusmsg_time = 0;
   E.syntax = NULL;
+
+  write(STDOUT_FILENO, "\033[?47h", 6);
+  saveCursorPosition();
 
   if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
   E.screenrows -= 2;
