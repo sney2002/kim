@@ -1142,7 +1142,13 @@ void editorProcessKeypress() {
     case CTRL_KEY('h'):
     case DEL_KEY:
       if (c == DEL_KEY) {
-        editorMoveCursor(ARROW_RIGHT);
+        if (E.cy >= E.numrows) return;
+
+        if (E.cy < E.numrows - 1 || E.cx < E.row[E.cy].size - 1) {
+          editorMoveCursor(ARROW_RIGHT);
+        } else {
+          return;
+        }
       }
       editorDelChar();
       break;
