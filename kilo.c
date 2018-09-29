@@ -1075,7 +1075,7 @@ void editorMoveCursor(int key) {
     case ARROW_RIGHT:
       if (row && E.cx < row->size) {
         E.cx += getCharLen(row->chars, E.cx);
-      } else if (row && E.cx == row->size) {
+      } else if (row && E.cx == row->size && E.cy < E.numrows - 1) {
         E.cy++;
         E.cx = 0;
       }
@@ -1086,7 +1086,7 @@ void editorMoveCursor(int key) {
       }
       break;
     case ARROW_DOWN:
-      if (E.cy < E.numrows) {
+      if (E.cy < E.numrows - 1) {
         E.cy++;
       }
       break;
@@ -1150,6 +1150,7 @@ void editorProcessKeypress() {
           return;
         }
       }
+
       editorDelChar();
       break;
 
