@@ -878,7 +878,11 @@ void editorDrawRows(struct abuf *ab) {
         while (padding--) abAppend(ab, " ", 1);
         abAppend(ab, welcome, welcomelen);
       } else {
-        abAppend(ab, "~", 1);
+        if (y == 0) {
+            abAppend(ab, "\x1b[33m1\x1b[39m ", 12);
+        } else {
+            abAppend(ab, "~", 1);
+        }
       }
     } else {
       char lineno[E.leftpad + 11];
@@ -1197,7 +1201,7 @@ void initEditor() {
   E.rx = 0;
   E.rowoff = 0;
   E.coloff = 0;
-  E.leftpad = 0;
+  E.leftpad = 2;
   E.numrows = 0;
   E.row = NULL;
   E.dirty = 0;
