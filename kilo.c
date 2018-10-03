@@ -1227,6 +1227,33 @@ void editorMoveCursor(int key) {
                 E.cy++;
             }
         break;
+
+        case HOME_KEY:
+            E.cx = 0;
+        break;
+
+        case END_KEY:
+            if (E.cy < E.numrows) {
+                E.cx = E.row[E.cy].size;
+            }
+        break;
+
+        case PAGE_UP:
+        case PAGE_DOWN:
+            {
+                if (key == PAGE_UP) {
+                    E.cy = E.rowoff;
+                } else if (key == PAGE_DOWN) {
+                    E.cy = E.rowoff + E.screenrows - 1;
+                    if (E.cy > E.numrows) E.cy = E.numrows;
+                }
+
+                int times = E.screenrows;
+                while (times--) {
+                    editorMoveCursor(key == PAGE_UP ? ARROW_UP : ARROW_DOWN);
+                }
+            }
+        break;
     }
 
     row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
@@ -1262,16 +1289,6 @@ void editorProcessInsertModeKeypress() {
             editorSave();
         break;
 
-        case HOME_KEY:
-            E.cx = 0;
-        break;
-
-        case END_KEY:
-            if (E.cy < E.numrows) {
-                E.cx = E.row[E.cy].size;
-            }
-        break;
-
         case CTRL_KEY('f'):
             editorFind();
         break;
@@ -1294,27 +1311,14 @@ void editorProcessInsertModeKeypress() {
             editorDelChar();
         break;
 
-        case PAGE_UP:
-        case PAGE_DOWN:
-            {
-                if (c == PAGE_UP) {
-                    E.cy = E.rowoff;
-                } else if (c == PAGE_DOWN) {
-                    E.cy = E.rowoff + E.screenrows - 1;
-                    if (E.cy > E.numrows) E.cy = E.numrows;
-                }
-
-                int times = E.screenrows;
-                while (times--) {
-                    editorMoveCursor(c == PAGE_UP ? ARROW_UP : ARROW_DOWN);
-                }
-            }
-        break;
-
         case ARROW_UP:
         case ARROW_DOWN:
         case ARROW_LEFT:
         case ARROW_RIGHT:
+        case HOME_KEY:
+        case END_KEY:
+        case PAGE_UP:
+        case PAGE_DOWN:
             editorMoveCursor(c);
         break;
 
@@ -1356,13 +1360,11 @@ void editorProcessNormalModeKeypress() {
         break;
 
         case '0':
-            E.cx = 0;
+            editorMoveCursor(HOME_KEY);
         break;
 
         case '$':
-            if (E.cy < E.numrows) {
-                E.cx = E.row[E.cy].size;
-            }
+            editorMoveCursor(END_KEY);
         break;
 
         case 'G':
@@ -1382,6 +1384,19 @@ void editorProcessNormalModeKeypress() {
         break;
 
         case 'i':
+            E.mode = INSERT_MODE;
+        break;
+
+        case 'o':
+            editorMoveCursor(END_KEY);
+            editorInsertNewline();
+            E.mode = INSERT_MODE;
+        break;
+
+        case 'O':
+            editorMoveCursor(HOME_KEY);
+            editorInsertNewline();
+            editorMoveCursor(ARROW_UP);
             E.mode = INSERT_MODE;
         break;
     }
