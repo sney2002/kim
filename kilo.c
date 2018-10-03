@@ -1339,24 +1339,41 @@ void editorProcessInsertModeKeypress() {
 
 void editorProcessNormalModeKeypress() {
     static int g_key_counter = 0;
+    static int count = 0;
 
     int c = editorReadKey();
 
+    if (isdigit(c) && (count || (!count && c != '0'))) {
+        count = count * 10 + (c - '0');
+        g_key_counter = 0;
+        return;
+    }
+
+    int repeat = count > 0 ? count : 1;
+
     switch (c) {
         case 'h':
-            editorMoveCursor(ARROW_LEFT);
+            for (int i = 0; i < repeat; i++) {
+                editorMoveCursor(ARROW_LEFT);
+            }
         break;
 
         case 'l':
-            editorMoveCursor(ARROW_RIGHT);
+            for (int i = 0; i < repeat; i++) {
+                editorMoveCursor(ARROW_RIGHT);
+            }
         break;
 
         case 'j':
-            editorMoveCursor(ARROW_DOWN);
+            for (int i = 0; i < repeat; i++) {
+                editorMoveCursor(ARROW_DOWN);
+            }
         break;
 
         case 'k':
-            editorMoveCursor(ARROW_UP);
+            for (int i = 0; i < repeat; i++) {
+                editorMoveCursor(ARROW_UP);
+            }
         break;
 
         case '0':
@@ -1380,6 +1397,7 @@ void editorProcessNormalModeKeypress() {
                 E.cy = 0;
                 E.cx = 0;
             }
+            count = 0;
             return;
         break;
 
@@ -1401,6 +1419,7 @@ void editorProcessNormalModeKeypress() {
         break;
     }
 
+    count = 0;
     g_key_counter = 0;
 }
 
