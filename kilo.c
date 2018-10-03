@@ -1201,6 +1201,8 @@ void editorProcessInsertModeKeypress() {
 }
 
 void editorProcessNormalModeKeypress() {
+    static int g_key_counter = 0;
+
     int c = editorReadKey();
 
     switch (c) {
@@ -1220,10 +1222,37 @@ void editorProcessNormalModeKeypress() {
             editorMoveCursor(ARROW_UP);
         break;
 
+        case '0':
+            E.cx = 0;
+        break;
+
+        case '$':
+            if (E.cy < E.numrows)
+                E.cx = E.row[E.cy].size;
+        break;
+
+        case 'G':
+            if (E.numrows) {
+                E.cy = E.numrows - 1;
+                E.cx = 0;
+            }
+        break;
+
+        case 'g':
+            g_key_counter++;
+            if (g_key_counter == 2) {
+                E.cy = 0;
+                E.cx = 0;
+            }
+            return;
+        break;
+
         case 'i':
             E.mode = INSERT_MODE;
         break;
     }
+
+    g_key_counter = 0;
 }
 
 void editorProcessKeypress() {
