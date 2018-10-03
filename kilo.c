@@ -54,6 +54,9 @@ enum editorHighlight {
 #define HL_HIGHLIGHT_NUMBERS (1<<0)
 #define HL_HIGHLIGHT_STRINGS (1<<1)
 
+#define NORMAL_MODE 1
+#define INSERT_MODE 0
+
 /*** data ***/
 struct cursor {
     int col;
@@ -96,6 +99,7 @@ struct editorConfig {
   time_t statusmsg_time;
   struct editorSyntax *syntax;
   struct termios orig_termios;
+  int mode;
 };
 
 struct cursor prev_cursor;
@@ -1103,7 +1107,7 @@ void editorMoveCursor(int key) {
   }
 }
 
-void editorProcessKeypress() {
+void editorProcessInsertModeKeypress() {
   static int quit_times = KILO_QUIT_TIMES;
 
   int c = editorReadKey();
@@ -1182,7 +1186,10 @@ void editorProcessKeypress() {
       break;
 
     case CTRL_KEY('l'):
+
+    break;
     case '\x1b':
+        E.mode = NORMAL_MODE;
       break;
 
     default:
@@ -1191,6 +1198,40 @@ void editorProcessKeypress() {
   }
 
   quit_times = KILO_QUIT_TIMES;
+}
+
+void editorProcessNormalModeKeypress() {
+    int c = editorReadKey();
+
+    switch (c) {
+        case 'h':
+            editorMoveCursor(ARROW_LEFT);
+        break;
+
+        case 'l':
+            editorMoveCursor(ARROW_RIGHT);
+        break;
+
+        case 'j':
+            editorMoveCursor(ARROW_DOWN);
+        break;
+
+        case 'k':
+            editorMoveCursor(ARROW_UP);
+        break;
+
+        case 'i':
+            E.mode = INSERT_MODE;
+        break;
+    }
+}
+
+void editorProcessKeypress() {
+    if (E.mode == NORMAL_MODE) {
+        editorProcessNormalModeKeypress();
+    } else {
+        editorProcessInsertModeKeypress();
+    }
 }
 
 /*** init ***/
@@ -1209,6 +1250,7 @@ void initEditor() {
   E.statusmsg[0] = '\0';
   E.statusmsg_time = 0;
   E.syntax = NULL;
+  E.mode = NORMAL_MODE;
 
   write(STDOUT_FILENO, "\033[?47h", 6);
   saveCursorPosition();
@@ -1221,6 +1263,7 @@ int main(int argc, char *argv[]) {
   setlocale(LC_ALL, "");
   enableRawMode();
   initEditor();
+
   if (argc >= 2) {
     editorOpen(argv[1]);
   }
