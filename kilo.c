@@ -1302,7 +1302,7 @@ void editorProcessInsertModeKeypress() {
                     return;
                 }
 
-                if (E.cy < E.numrows - 1 || E.cx < E.row[E.cy].size - 1) {
+                if (E.cy < E.numrows - 1 || E.cx < E.row[E.cy].size) {
                     editorMoveCursor(ARROW_RIGHT);
                 } else {
                     return;
