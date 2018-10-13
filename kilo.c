@@ -695,6 +695,16 @@ void editorInsertChar(int c) {
     E.cx++;
 }
 
+void editorAutoIndent() {
+    if (E.cy == 0) return;
+    char *prev_row = E.row[E.cy - 1].chars;
+
+    while (IS_TAB(*prev_row) || *prev_row == ' ') {
+        editorInsertChar(*prev_row);
+        prev_row++;
+    }
+}
+
 void editorInsertNewline() {
     if (E.cx == 0) {
         editorInsertRow(E.cy, "", 0);
@@ -709,6 +719,7 @@ void editorInsertNewline() {
 
     E.cy++;
     E.cx = 0;
+    editorAutoIndent();
 }
 
 void editorDelChar() {
