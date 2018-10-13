@@ -102,6 +102,7 @@ struct editorConfig {
     struct editorSyntax *syntax;
     struct termios orig_termios;
     int mode;
+    char expandtab;
 };
 
 struct cursor prev_cursor;
@@ -1330,7 +1331,15 @@ void editorProcessInsertModeKeypress() {
         break;
 
         default:
-            editorInsertChar(c);
+            if (!IS_TAB(c) || E.expandtab == 0) {
+                editorInsertChar(c);
+                return;
+            }
+
+            int tabs = KILO_TAB_STOP - E.cx % KILO_TAB_STOP;
+            for (int i = 0; i < tabs; i++) {
+                editorInsertChar(' ');
+            }
         break;
     }
 
@@ -1448,6 +1457,7 @@ void initEditor() {
     E.statusmsg_time = 0;
     E.syntax = NULL;
     E.mode = NORMAL_MODE;
+    E.expandtab = 1;
 
     write(STDOUT_FILENO, "\033[?47h", 6);
     saveCursorPosition();
