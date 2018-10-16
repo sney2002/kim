@@ -1347,7 +1347,7 @@ void editorProcessInsertModeKeypress() {
                 return;
             }
 
-            int tabs = KILO_TAB_STOP - E.cx % KILO_TAB_STOP;
+            int tabs = KILO_TAB_STOP - (E.rx - E.leftpad) % KILO_TAB_STOP;
             for (int i = 0; i < tabs; i++) {
                 editorInsertChar(' ');
             }
