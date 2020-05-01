@@ -701,9 +701,9 @@ void editorInsertChar(int c) {
     E.cx++;
 }
 
-void editorAutoIndent() {
-    if (E.cy == 0) return;
-    char *prev_row = E.row[E.cy - 1].chars;
+void editorAutoIndent(int prev) {
+    if (prev <= 0) return;
+    char *prev_row = E.row[prev].chars;
 
     while (IS_TAB(*prev_row) || *prev_row == ' ') {
         editorInsertChar(*prev_row);
@@ -725,7 +725,6 @@ void editorInsertNewline() {
 
     E.cy++;
     E.cx = 0;
-    editorAutoIndent();
 }
 
 void editorDelChar() {
@@ -1297,6 +1296,7 @@ void editorProcessInsertModeKeypress() {
     switch (c) {
         case '\r':
             editorInsertNewline();
+            editorAutoIndent(E.cy - 1);
         break;
 
         case CTRL_KEY('q'):
@@ -1471,6 +1471,7 @@ void editorProcessNormalModeKeypress() {
         case 'o':
             editorMoveCursor(END_KEY);
             editorInsertNewline();
+            editorAutoIndent(E.cy - 1);
             E.mode = INSERT_MODE;
         break;
 
@@ -1478,6 +1479,7 @@ void editorProcessNormalModeKeypress() {
             editorMoveCursor(HOME_KEY);
             editorInsertNewline();
             editorMoveCursor(ARROW_UP);
+            editorAutoIndent(E.cy + 1);
             E.mode = INSERT_MODE;
         break;
     }
