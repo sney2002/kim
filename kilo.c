@@ -1283,8 +1283,8 @@ void editorMoveCursor(int key) {
 
     row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
     int rowlen = row ? row->size : 0;
-    if (E.cx > rowlen) {
-        E.cx = rowlen;
+    if (E.cx >= rowlen) {
+        E.cx = E.mode == NORMAL_MODE ? rowlen - 1 : rowlen;
     }
 }
 
@@ -1353,6 +1353,9 @@ void editorProcessInsertModeKeypress() {
 
         case ESC_KEY:
             E.mode = NORMAL_MODE;
+            if (E.cx > 0) {
+                editorMoveCursor(ARROW_LEFT);
+            }
         break;
 
         default:
@@ -1459,28 +1462,28 @@ void editorProcessNormalModeKeypress() {
         break;
 
         case 'A':
-            editorMoveCursor(END_KEY);
             E.mode = INSERT_MODE;
+            editorMoveCursor(END_KEY);
         break;
 
         case 'a':
-            editorMoveCursor(ARROW_RIGHT);
             E.mode = INSERT_MODE;
+            editorMoveCursor(ARROW_RIGHT);
         break;
 
         case 'o':
+            E.mode = INSERT_MODE;
             editorMoveCursor(END_KEY);
             editorInsertNewline();
             editorAutoIndent(E.cy - 1);
-            E.mode = INSERT_MODE;
         break;
 
         case 'O':
+            E.mode = INSERT_MODE;
             editorMoveCursor(HOME_KEY);
             editorInsertNewline();
             editorMoveCursor(ARROW_UP);
             editorAutoIndent(E.cy + 1);
-            E.mode = INSERT_MODE;
         break;
     }
 
