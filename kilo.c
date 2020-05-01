@@ -540,16 +540,22 @@ int editorRowCxToRx(erow *row, int cx) {
 int editorRowRxToCx(erow *row, int rx) {
     int cur_rx = 0;
     int cx;
-    for (cx = 0; cx < row->size; cx++) {
+    int len;
+    for (cx = 0; cx < row->size; ) {
         if (IS_TAB(row->chars[cx])) {
             cur_rx += (KILO_TAB_STOP - 1) - (cur_rx % KILO_TAB_STOP);
+            cur_rx++;
+            len = 1;
+        } else {
+            int width = getCharWidth(row->chars + cx, row->size - cx, &len);
+            cur_rx += width;
         }
-
-        cur_rx++;
 
         if (cur_rx > rx) {
             return cx;
         }
+
+        cx += len;
     }
 
     return cx;
@@ -1231,12 +1237,20 @@ void editorMoveCursor(int key) {
         case ARROW_UP:
             if (E.cy != 0) {
                 E.cy--;
+                erow *newrow = E.cy >= E.numrows ? NULL : &E.row[E.cy];
+                if (newrow) {
+                    E.cx = editorRowRxToCx(newrow, E.rx - E.leftpad);
+                }
             }
         break;
 
         case ARROW_DOWN:
             if (E.cy < E.numrows - 1) {
                 E.cy++;
+                erow *newrow = E.cy >= E.numrows ? NULL : &E.row[E.cy];
+                if (newrow) {
+                    E.cx = editorRowRxToCx(newrow, E.rx - E.leftpad);
+                }
             }
         break;
 
