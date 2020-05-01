@@ -1430,9 +1430,12 @@ void editorProcessNormalModeKeypress() {
             if (g_key_counter == 2) {
                 E.cy = 0;
                 E.cx = 0;
+                for (int i = 0; i < repeat - 1; i++) {
+                    editorMoveCursor(ARROW_DOWN);
+                }
+            } else {
+                return;
             }
-            count = 0;
-            return;
         break;
 
         case 'i':
