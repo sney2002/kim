@@ -1438,7 +1438,33 @@ void editorProcessNormalModeKeypress() {
             }
         break;
 
+        case 'I':
+            editorMoveCursor(HOME_KEY);
+
+            if (E.cy < E.numrows) {
+                erow *row = &E.row[E.cy]; 
+                char *line = row->chars;
+
+                while (isspace(*line)) {
+                    line++;
+                    editorMoveCursor(ARROW_RIGHT);
+                }
+            }
+
+            E.mode = INSERT_MODE;
+        break;
+
         case 'i':
+            E.mode = INSERT_MODE;
+        break;
+
+        case 'A':
+            editorMoveCursor(END_KEY);
+            E.mode = INSERT_MODE;
+        break;
+
+        case 'a':
+            editorMoveCursor(ARROW_RIGHT);
             E.mode = INSERT_MODE;
         break;
 
