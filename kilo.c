@@ -72,6 +72,8 @@ struct editorSyntax {
     char *singleline_comment_start;
     char *multiline_comment_start;
     char *multiline_comment_end;
+    char *indent_chars;
+    char *unindent_chars;
     int flags;
 };
 
@@ -125,6 +127,7 @@ struct editorSyntax HLDB[] = {
         C_HL_extensions,
         C_HL_keywords,
         "//", "/*", "*/",
+        "{[", "}]",
         HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS
     },
 };
@@ -702,12 +705,30 @@ void editorInsertChar(int c) {
 }
 
 void editorAutoIndent(int prev) {
-    if (prev <= 0) return;
+    if (prev < 0) return;
     char *prev_row = E.row[prev].chars;
+    char last_char = -1;
 
     while (IS_TAB(*prev_row) || *prev_row == ' ') {
         editorInsertChar(*prev_row);
         prev_row++;
+    }
+
+    while (*prev_row) {
+        if (!IS_TAB(*prev_row) && *prev_row != ' ') {
+            last_char = *prev_row;
+        }
+        prev_row++;
+    }
+
+    if (strchr(E.syntax->indent_chars, last_char) != NULL) {
+        if (E.expandtab) {
+            for (int i = 0; i < KILO_TAB_STOP; i++) {
+                editorInsertChar(' ');
+            }
+        } else {
+            editorInsertChar('\t');
+        }
     }
 }
 
@@ -1360,6 +1381,24 @@ void editorProcessInsertModeKeypress() {
 
         default:
             if (!IS_TAB(c) || E.expandtab == 0) {
+                if (strchr(E.syntax->unindent_chars, c) == NULL) {
+                    editorInsertChar(c);
+                    return;
+                }
+
+
+                for (int i = E.cx - 1; i >= 0; i--) {
+                    char p = E.row[E.cy].chars[i];
+                    if (!IS_TAB(p) && p != ' ') {
+                        editorInsertChar(c);
+                        return;
+                    }
+                }
+
+                for (int i = 0; i < KILO_TAB_STOP; i++) {
+                    if (E.cx > 0) editorDelChar();
+                }
+
                 editorInsertChar(c);
                 return;
             }
@@ -1483,7 +1522,7 @@ void editorProcessNormalModeKeypress() {
             editorMoveCursor(HOME_KEY);
             editorInsertNewline();
             editorMoveCursor(ARROW_UP);
-            editorAutoIndent(E.cy + 1);
+            editorAutoIndent(E.cy - 1);
         break;
     }
 
