@@ -1457,35 +1457,46 @@ void editorProcessNormalModeKeypress() {
 
     switch (c) {
         case 'h':
+        case ARROW_LEFT:
             for (int i = 0; i < repeat; i++) {
                 editorMoveCursor(ARROW_LEFT);
             }
         break;
 
         case 'l':
+        case ARROW_RIGHT:
             for (int i = 0; i < repeat; i++) {
                 editorMoveCursor(ARROW_RIGHT);
             }
         break;
 
         case 'j':
+        case ARROW_DOWN:
             for (int i = 0; i < repeat; i++) {
                 editorMoveCursor(ARROW_DOWN);
             }
         break;
 
         case 'k':
+        case ARROW_UP:
             for (int i = 0; i < repeat; i++) {
                 editorMoveCursor(ARROW_UP);
             }
         break;
 
         case '0':
+        case HOME_KEY:
             editorMoveCursor(HOME_KEY);
         break;
 
         case '$':
+        case END_KEY:
             editorMoveCursor(END_KEY);
+        break;
+
+        case PAGE_UP:
+        case PAGE_DOWN:
+            editorMoveCursor(c);
         break;
 
         case 'G':
