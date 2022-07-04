@@ -1500,9 +1500,15 @@ void editorProcessNormalModeKeypress() {
         break;
 
         case 'G':
-            if (E.numrows) {
-                E.cy = E.numrows - 1;
+            if (count == 0) {
+                E.cy = E.numrows ? E.numrows - 1 : 0;
                 E.cx = 0;
+            } else {
+                E.cy = 0;
+                E.cx = 0;
+                for (int i = 0; i < repeat - 1; i++) {
+                    editorMoveCursor(ARROW_DOWN);
+                }
             }
         break;
 
