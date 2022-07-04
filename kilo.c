@@ -721,7 +721,7 @@ void editorAutoIndent(int prev) {
         prev_row++;
     }
 
-    if (strchr(E.syntax->indent_chars, last_char) != NULL) {
+    if (E.syntax && strchr(E.syntax->indent_chars, last_char) != NULL) {
         if (E.expandtab) {
             for (int i = 0; i < KILO_TAB_STOP; i++) {
                 editorInsertChar(' ');
@@ -1093,13 +1093,34 @@ void editorDrawRows(struct abuf *ab) {
 void editorDrawStatusBar(struct abuf *ab) {
     abAppend(ab, "\x1b[7m", 4);
 
-    char status[80], rstatus[80];
+    char status[80], rstatus[80], debugMsg[80];
+
+    erow *row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
+    int charLen = row && E.cx < row->size ? getCharLen(row->chars, E.cx) : 0;
+
+    if (charLen) {
+        char currentChar[charLen];
+
+        memcpy(currentChar, &row->chars[E.cx], charLen);
+        currentChar[charLen] = 0;
+
+        if (charLen == 1) {
+            snprintf(debugMsg, sizeof(debugMsg), "[%d] \"%s\" [%d]", E.cx, currentChar, row->chars[E.cx]);
+        } else if (charLen == 2) {
+            snprintf(debugMsg, sizeof(debugMsg), "[%d] \"%s\" [%d, %d]", E.cx, currentChar, row->chars[E.cx], row->chars[E.cx + 1]);
+        } else if (charLen == 3) {
+            snprintf(debugMsg, sizeof(debugMsg), "[%d] \"%s\" [%d, %d, %d]", E.cx, currentChar, row->chars[E.cx], row->chars[E.cx + 1], row->chars[E.cx + 2]);
+        }
+    } else {
+        debugMsg[0] = 0;
+    }
 
     int len = snprintf(
-        status, sizeof(status), "%.20s - %d lines %s",
+        status, sizeof(status), "%.20s - %d lines %s | debug %s",
         E.filename ? E.filename : "[No Name]",
         E.numrows,
-        E.dirty ? "(modified)" : ""
+        E.dirty ? "(modified)" : "",
+        debugMsg
     );
 
     int rlen = snprintf(
@@ -1381,7 +1402,7 @@ void editorProcessInsertModeKeypress() {
 
         default:
             if (!IS_TAB(c) || E.expandtab == 0) {
-                if (strchr(E.syntax->unindent_chars, c) == NULL) {
+                if (E.syntax && strchr(E.syntax->unindent_chars, c) == NULL) {
                     editorInsertChar(c);
                     return;
                 }
