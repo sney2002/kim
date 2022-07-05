@@ -246,10 +246,6 @@ int editorReadKey() {
     return ESC_KEY;
 }
 
-int ishexdigit(char c) {
-    return isdigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
-}
-
 int getCursorPosition(int *rows, int *cols) {
     char buf[32];
     unsigned int i = 0;
@@ -294,9 +290,12 @@ int getWindowSize(int *rows, int *cols) {
 }
 
 /*** syntax highlighting ***/
-
 int is_separator(int c) {
     return isspace(c) || c == '\0' || strchr(",.()+-/*=~%<>[];", c) != NULL;
+}
+
+int ishexdigit(char c) {
+    return isdigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
 }
 
 void editorUpdateSyntax(erow *row) {
@@ -486,11 +485,14 @@ void editorSelectSyntaxHighlight() {
     }
 }
 
-/*** row operations ***/
+/*** Characters Info ***/
+
+// The number of bytes the next character in a string has
 int getCharLen(const char *string, int pos) {
     return mblen(string + pos, strlen(string) - pos);
 }
 
+// The number of bytes the previous character in a string has
 int getPrevCharLen(const char *string, int pos) {
     int len = 0;
     int i = pos;
@@ -503,6 +505,7 @@ int getPrevCharLen(const char *string, int pos) {
     return len;
 }
 
+// Get the number of columns a character occupies
 int getCharWidth(char *string, int size, int *l) {
     wchar_t dest;
     int len = mblen(string, size);
@@ -517,6 +520,7 @@ int getCharWidth(char *string, int size, int *l) {
     return wcwidth(dest);
 }
 
+/*** row operations ***/
 int editorRowCxToRx(erow *row, int cx) {
     int rx = 0;
     int j;
@@ -528,8 +532,7 @@ int editorRowCxToRx(erow *row, int cx) {
             len = 1;
             rx += KILO_TAB_STOP - (rx % KILO_TAB_STOP);
         } else {
-            int width = getCharWidth(line, row->size - j, &len);
-            rx += width;
+            rx += getCharWidth(line, row->size - j, &len);
         }
 
         j += len;
@@ -550,8 +553,7 @@ int editorRowRxToCx(erow *row, int rx) {
             cur_rx++;
             len = 1;
         } else {
-            int width = getCharWidth(row->chars + cx, row->size - cx, &len);
-            cur_rx += width;
+            cur_rx += getCharWidth(row->chars + cx, row->size - cx, &len);
         }
 
         if (cur_rx > rx) {
@@ -704,34 +706,6 @@ void editorInsertChar(int c) {
     E.cx++;
 }
 
-void editorAutoIndent(int prev) {
-    if (prev < 0) return;
-    char *prev_row = E.row[prev].chars;
-    char last_char = -1;
-
-    while (IS_TAB(*prev_row) || *prev_row == ' ') {
-        editorInsertChar(*prev_row);
-        prev_row++;
-    }
-
-    while (*prev_row) {
-        if (!IS_TAB(*prev_row) && *prev_row != ' ') {
-            last_char = *prev_row;
-        }
-        prev_row++;
-    }
-
-    if (E.syntax && strchr(E.syntax->indent_chars, last_char) != NULL) {
-        if (E.expandtab) {
-            for (int i = 0; i < KILO_TAB_STOP; i++) {
-                editorInsertChar(' ');
-            }
-        } else {
-            editorInsertChar('\t');
-        }
-    }
-}
-
 void editorInsertNewline() {
     if (E.cx == 0) {
         editorInsertRow(E.cy, "", 0);
@@ -766,6 +740,33 @@ void editorDelChar() {
     }
 }
 
+void editorAutoIndent(int prev) {
+    if (prev < 0) return;
+    char *prev_row = E.row[prev].chars;
+    char last_char = -1;
+
+    while (IS_TAB(*prev_row) || *prev_row == ' ') {
+        editorInsertChar(*prev_row);
+        prev_row++;
+    }
+
+    while (*prev_row) {
+        if (!IS_TAB(*prev_row) && *prev_row != ' ') {
+            last_char = *prev_row;
+        }
+        prev_row++;
+    }
+
+    if (E.syntax && strchr(E.syntax->indent_chars, last_char) != NULL) {
+        if (E.expandtab) {
+            for (int i = 0; i < KILO_TAB_STOP; i++) {
+                editorInsertChar(' ');
+            }
+        } else {
+            editorInsertChar('\t');
+        }
+    }
+}
 
 /*** file i/o ***/
 char *editorRowsToString(int *buflen) {
