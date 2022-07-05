@@ -1409,7 +1409,7 @@ void editorProcessInsertModeKeypress() {
 
         default:
             if (!IS_TAB(c) || E.expandtab == 0) {
-                if (E.syntax && strchr(E.syntax->unindent_chars, c) == NULL) {
+                if (!E.syntax || strchr(E.syntax->unindent_chars, c) == NULL) {
                     editorInsertChar(c);
                     return;
                 }
