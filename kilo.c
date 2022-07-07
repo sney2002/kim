@@ -447,7 +447,7 @@ int editorSyntaxToColor(int hl) {
         case HL_KEYWORD2: return 32;
         case HL_STRING: return 35;
         case HL_NUMBER: return 31;
-        case HL_MATCH: return 34;
+        case HL_MATCH: return 43;
         default: return 37;
     }
 }
@@ -856,9 +856,14 @@ void editorSave() {
 void editorFindCallback(char *query, int key) {
     static int last_match = -1;
     static int direction = 1;
+    static int start_line = -2;
 
     static int saved_hl_line;
     static char *saved_hl = NULL;
+
+    if (start_line == -2) {
+        start_line = E.cy - 1;
+    }
 
     if (saved_hl) {
         memcpy(E.row[saved_hl_line].hl, saved_hl, E.row[saved_hl_line].rsize);
@@ -868,6 +873,7 @@ void editorFindCallback(char *query, int key) {
 
     if (key == '\r' || key == ESC_KEY) {
         last_match = -1;
+        start_line = -2;
         direction = 1;
         return;
     } else if (key == ARROW_RIGHT || key == ARROW_DOWN) {
@@ -875,7 +881,7 @@ void editorFindCallback(char *query, int key) {
     } else if (key == ARROW_LEFT || key == ARROW_UP) {
         direction = -1;
     } else {
-        last_match = -1;
+        last_match = start_line;
         direction = 1;
     }
 
@@ -894,7 +900,7 @@ void editorFindCallback(char *query, int key) {
         }
 
         erow *row = &E.row[current];
-        char *match = strstr(row->render, query);
+        char *match = strcasestr(row->render, query);
         if (match) {
             last_match = current;
             E.cy = current;
@@ -916,7 +922,7 @@ void editorFind() {
     int saved_coloff = E.coloff;
     int saved_rowoff = E.rowoff;
 
-    char *query = editorPrompt("Search: %s", editorFindCallback);
+    char *query = editorPrompt("/%s", editorFindCallback);
 
     if (query) {
         free(query);
@@ -1065,13 +1071,17 @@ void editorDrawRows(struct abuf *ab) {
                     }
                 } else if (*hl == HL_NORMAL) {
                     if (current_color != -1) {
-                        abAppend(ab, "\x1b[39m", 5);
+                        abAppend(ab, "\x1b[39m\x1b[49m", 10);
                         current_color = -1;
                     }
                     abAppend(ab, c, char_len);
                 } else {
                     int color = editorSyntaxToColor(*hl);
                     if (color != current_color) {
+                        if (*hl != HL_MATCH) {
+                            abAppend(ab, "\x1b[49m", 5);
+                        }
+
                         current_color = color;
                         char buf[16];
                         int clen = snprintf(buf, sizeof(buf), "\x1b[%dm", color);
@@ -1083,7 +1093,7 @@ void editorDrawRows(struct abuf *ab) {
                 c += char_len;
                 hl += char_len;
             }
-            abAppend(ab, "\x1b[39m", 5);
+            abAppend(ab, "\x1b[39m\x1b[49m", 10);
         }
 
         abAppend(ab, "\x1b[K", 3);
@@ -1206,6 +1216,7 @@ char *editorPrompt(char *prompt, void (*callback)(char *, int)) {
     int cursor_start = strstr(prompt, "%s") - prompt;
 
     size_t buflen = 0;
+    int string_width = 0;
     buf[0] = '\0';
 
     while (1) {
@@ -1213,7 +1224,7 @@ char *editorPrompt(char *prompt, void (*callback)(char *, int)) {
         editorRefreshScreen();
 
         // move cursor to prompt
-        int cursor_pos = cursor_start + buflen + 1;
+        int cursor_pos = cursor_start + string_width + 1;
         int len = snprintf(
             cursor, sizeof(cursor), "\x1b[%d;%dH",
             E.screenrows + 2, cursor_pos
@@ -1224,7 +1235,8 @@ char *editorPrompt(char *prompt, void (*callback)(char *, int)) {
         int c = editorReadKey();
         if (c == DEL_KEY || c == CTRL_KEY('h') || c == BACKSPACE) {
             if (buflen != 0) {
-                buf[--buflen] = '\0';
+                buflen -= getPrevCharLen(buf, buflen);
+                buf[buflen] = '\0';
             }
         } else if (c == ESC_KEY) {
             editorSetStatusMessage("");
@@ -1248,6 +1260,15 @@ char *editorPrompt(char *prompt, void (*callback)(char *, int)) {
             }
             buf[buflen++] = c;
             buf[buflen] = '\0';
+        }
+
+        char *line = buf;
+        string_width = 0;
+        for (size_t i = 0; i < buflen;) {
+            int charlen;
+            string_width += getCharWidth(line, buflen - i, &charlen);
+            i += charlen;
+            line += charlen;
         }
 
         if (callback) callback(buf, c);
@@ -1457,6 +1478,10 @@ void editorProcessNormalModeKeypress() {
     int repeat = count > 0 ? count : 1;
 
     switch (c) {
+        case '/':
+            editorFind();
+        break;
+
         case 'h':
         case ARROW_LEFT:
             for (int i = 0; i < repeat; i++) {
